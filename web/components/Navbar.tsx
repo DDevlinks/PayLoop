@@ -52,11 +52,12 @@ export function Navbar() {
           <span className="text-lg tracking-tight">PayLoop</span>
         </Link>
 
-        <nav className="hidden items-center gap-1 lg:flex">
+        <nav aria-label="Primary" className="hidden items-center gap-1 lg:flex">
           {links.map((l) => (
             <Link
               key={l.href}
               href={l.href}
+              aria-current={pathname === l.href ? "page" : undefined}
               className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
                 pathname === l.href
                   ? "bg-white/10 text-white"
@@ -126,6 +127,7 @@ export function Navbar() {
       {open && (
         <nav
           id="mobile-nav"
+          aria-label="Primary (mobile)"
           className="border-t border-white/10 bg-ink-900/95 px-4 py-2 lg:hidden"
         >
           {links.map((l) => (
@@ -133,6 +135,7 @@ export function Navbar() {
               key={l.href}
               href={l.href}
               onClick={() => setOpen(false)}
+              aria-current={pathname === l.href ? "page" : undefined}
               className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition ${
                 pathname === l.href
                   ? "bg-white/10 text-white"

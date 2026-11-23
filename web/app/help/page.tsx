@@ -6,7 +6,7 @@ import type { Metadata } from "next";
 // questions from the Level-5 survey ("a more detailed help section").
 
 export const metadata: Metadata = {
-  title: "Help — PayLoop",
+  title: "Help",
   description:
     "PayLoop help and FAQ: wallet setup, Enable USDC, test funds, creating and paying invoices, history, activity, and withdrawing to Naira.",
 };

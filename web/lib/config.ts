@@ -14,6 +14,14 @@ const DEFAULT_TOKEN_ID =
 // unreliable across versions, so we establish the trustline in-app).
 const DEFAULT_TOKEN_ISSUER =
   "GDYPHJ7H2DO6OUWD5ZJRLFT57QNUZYOWBBYEHEQBAGJDFBAAFJWMXSNU";
+// Legacy default for the account used as the simulation source on read calls.
+// It never signs anything, so deployments can point at any funded account.
+export const DEFAULT_READ_SOURCE =
+  "GBTDIHYJA4OPTDBDRKH5A5PHBSH7QVAEY46V27DCB24SXNRXIQNHSNUM";
+
+export function resolveReadSource(value?: string): string {
+  return value?.trim() || DEFAULT_READ_SOURCE;
+}
 
 export type TokenConfig = {
   id: string;
@@ -39,9 +47,8 @@ function parseTokens(): TokenConfig[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [DEFAULT_TOKEN];
     const extra = parsed
-      .filter(
-        (t): t is Record<string, unknown> =>
-          Boolean(t && typeof t === "object" && t.id && t.issuer)
+      .filter((t): t is Record<string, unknown> =>
+        Boolean(t && typeof t === "object" && t.id && t.issuer),
       )
       .map((t) => ({
         id: String(t.id),
@@ -73,6 +80,7 @@ export const config = {
     process.env.NEXT_PUBLIC_HORIZON_URL ??
     "https://horizon-testnet.stellar.org",
   contractId: process.env.NEXT_PUBLIC_CONTRACT_ID ?? DEFAULT_CONTRACT_ID,
+  readSource: resolveReadSource(process.env.NEXT_PUBLIC_READ_SOURCE),
   tokenId: DEFAULT_TOKEN.id,
   tokenIssuer: DEFAULT_TOKEN.issuer,
   tokenDecimals: DEFAULT_TOKEN.decimals,

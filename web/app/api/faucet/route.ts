@@ -9,6 +9,7 @@ import {
   rpc,
 } from "@stellar/stellar-sdk";
 import { createRateLimiter } from "@/lib/rate-limiter";
+import { errorMessage } from "@/lib/async-resource";
 
 // Server-only faucet: mints test USDC (a Stellar Asset Contract) to a user.
 // The SAC admin is the asset issuer; its secret lives in USDC_ISSUER_SECRET and
@@ -138,9 +139,9 @@ export async function POST(req: Request) {
 
     await rateLimiter.recordMint(ip, address, MINT_AMOUNT);
     return NextResponse.json({ ok: true, hash: sent.hash });
-  } catch (e: any) {
+  } catch (e) {
     return NextResponse.json(
-      { error: e?.message ?? "Faucet failed unexpectedly." },
+      { error: errorMessage(e, "Faucet failed unexpectedly.") },
       { status: 500 },
     );
   }

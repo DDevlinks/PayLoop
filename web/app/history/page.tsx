@@ -4,7 +4,9 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useWallet } from "@/components/WalletProvider";
 import { ConnectPrompt } from "@/components/ConnectPrompt";
-import { Alert, EmptyState, Spinner, StatusBadge } from "@/components/ui";
+import { Alert, EmptyState, OverdueBadge, Spinner, StatusBadge } from "@/components/ui";
+import { AddressChip } from "@/components/AddressChip";
+import { isOverdue } from "@/lib/invoice-helpers";
 import { ScanStatus } from "@/components/ScanStatus";
 import { InvoicePreview } from "@/components/InvoiceDocument";
 import { ShareMenu } from "@/components/ShareMenu";
@@ -14,7 +16,6 @@ import {
   formatAmount,
   formatDate,
   humanizeDescription,
-  shortAddress,
 } from "@/lib/format";
 import { getTokenConfig, isConfigured } from "@/lib/config";
 import { TokenAmount } from "@/components/TokenAmount";
@@ -208,15 +209,14 @@ export default function HistoryPage() {
                       #{inv.id}
                     </span>
                     <StatusBadge status={inv.status} />
+                    {isOverdue(inv) && <OverdueBadge />}
                   </div>
                   <p className="truncate text-sm font-medium">
                     {humanizeDescription(inv.description) || "—"}
                   </p>
                   <p className="text-xs text-slate-400">
                     {isFreelancer ? "Client" : "Freelancer"}:{" "}
-                    <span className="font-mono">
-                      {shortAddress(counterparty)}
-                    </span>
+                    <AddressChip address={counterparty} />
                     {" · "}Created {formatDate(inv.createdAt)}
                     {inv.dueDate > 0n && ` · Due ${formatDate(inv.dueDate)}`}
                   </p>

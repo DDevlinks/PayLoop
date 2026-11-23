@@ -5,6 +5,7 @@ import { useWallet } from "./WalletProvider";
 import { Spinner } from "./ui";
 import { config } from "@/lib/config";
 import { trackEvent } from "@/lib/analytics";
+import { errorMessage } from "@/lib/async-resource";
 
 // Requests test USDC from the server-side faucet (which holds the issuer key).
 export function FaucetButton({ onDone }: { onDone?: () => void }) {
@@ -27,8 +28,8 @@ export function FaucetButton({ onDone }: { onDone?: () => void }) {
       setMsg("Sent 500 test USDC");
       trackEvent("faucet_requested");
       onDone?.();
-    } catch (e: any) {
-      setMsg(e?.message ?? "Faucet failed.");
+    } catch (e) {
+      setMsg(errorMessage(e, "Faucet failed."));
     } finally {
       setLoading(false);
       setTimeout(() => setMsg(null), 4000);

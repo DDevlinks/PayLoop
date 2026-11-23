@@ -8,6 +8,13 @@ export interface RateLimiterConfig {
   globalDailyCapTokens: bigint; // Global daily mint limit in base units
 }
 
+/** Minimal shape shared by the Upstash and Vercel KV REST clients below. */
+type HttpKvClient = {
+  baseUrl: string;
+  token: string;
+  request(method: string, key: string, ...args: unknown[]): Promise<unknown>;
+};
+
 export interface RateLimiter {
   /**
    * Check if IP+address combination has hit rate limits.
@@ -43,8 +50,11 @@ export class InMemoryRateLimiter implements RateLimiter {
   private addressMints = new Map<string, number[]>(); // Address -> array of timestamps
   private dailyTotal = 0n;
   private dailyResetTime = Date.now() + this.dailyWindow;
+  private config: RateLimiterConfig;
 
-  constructor(private config: RateLimiterConfig = DEFAULT_CONFIG) {}
+  constructor(config: RateLimiterConfig = DEFAULT_CONFIG) {
+    this.config = config;
+  }
 
   async checkLimit(ip: string, address: string): Promise<number | null> {
     const now = Date.now();
@@ -57,7 +67,9 @@ export class InMemoryRateLimiter implements RateLimiter {
 
     // Check per-IP limit
     const ipMintTimes = this.ipMints.get(ip) ?? [];
-    const recentIpMints = ipMintTimes.filter((ts) => now - ts < this.perIpWindow);
+    const recentIpMints = ipMintTimes.filter(
+      (ts) => now - ts < this.perIpWindow,
+    );
     if (recentIpMints.length >= this.config.perIpLimitPerHour) {
       const oldestMint = Math.min(...recentIpMints);
       const remainingMs = this.perIpWindow - (now - oldestMint);
@@ -67,7 +79,7 @@ export class InMemoryRateLimiter implements RateLimiter {
     // Check per-address limit (keep existing wallet-level protection)
     const addressMintTimes = this.addressMints.get(address) ?? [];
     const recentAddressMints = addressMintTimes.filter(
-      (ts) => now - ts < this.perAddressWindow
+      (ts) => now - ts < this.perAddressWindow,
     );
     if (recentAddressMints.length > 0) {
       const lastMint = Math.max(...recentAddressMints);
@@ -135,18 +147,20 @@ export class InMemoryRateLimiter implements RateLimiter {
  * Requires UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN env vars.
  */
 export class RedisRateLimiter implements RateLimiter {
-  private client: any;
+  private client: HttpKvClient;
   private perIpWindow = 3600; // 1 hour in seconds
   private perAddressWindow = 3600; // 1 hour in seconds
   private dailyWindow = 86400; // 1 day in seconds
+  private config: RateLimiterConfig;
 
-  constructor(private config: RateLimiterConfig = DEFAULT_CONFIG) {
+  constructor(config: RateLimiterConfig = DEFAULT_CONFIG) {
+    this.config = config;
     const url = process.env.UPSTASH_REDIS_REST_URL;
     const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
     if (!url || !token) {
       throw new Error(
-        "Redis rate limiter requires UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN"
+        "Redis rate limiter requires UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN",
       );
     }
 
@@ -154,7 +168,7 @@ export class RedisRateLimiter implements RateLimiter {
     this.client = {
       baseUrl: url,
       token,
-      request: async (method: string, key: string, ...args: any[]) => {
+      request: async (method: string, key: string, ...args: unknown[]) => {
         const response = await fetch(`${url}/${method}/${key}`, {
           method: "POST",
           headers: {
@@ -163,7 +177,10 @@ export class RedisRateLimiter implements RateLimiter {
           },
           body: JSON.stringify(args),
         });
-        const result = await response.json();
+        const result = (await response.json()) as {
+          error?: string;
+          result?: unknown;
+        };
         if (result.error) throw new Error(result.error);
         return result.result;
       },
@@ -200,7 +217,11 @@ export class RedisRateLimiter implements RateLimiter {
     await this.client.request("EXPIRE", ipKey, String(this.perIpWindow));
 
     await this.client.request("INCR", addressKey);
-    await this.client.request("EXPIRE", addressKey, String(this.perAddressWindow));
+    await this.client.request(
+      "EXPIRE",
+      addressKey,
+      String(this.perAddressWindow),
+    );
 
     await this.client.request("INCRBY", dailyKey, String(amount));
     await this.client.request("EXPIRE", dailyKey, String(this.dailyWindow));
@@ -209,7 +230,7 @@ export class RedisRateLimiter implements RateLimiter {
   async getDailyTotal(): Promise<bigint> {
     const dailyKey = `faucet:daily:total`;
     const total = await this.client.request("GET", dailyKey);
-    return BigInt(total ?? 0);
+    return BigInt((total as string | number | bigint) ?? 0);
   }
 }
 
@@ -218,25 +239,27 @@ export class RedisRateLimiter implements RateLimiter {
  * Requires KV_REST_API_URL and KV_REST_API_TOKEN env vars.
  */
 export class VercelKVRateLimiter implements RateLimiter {
-  private client: any;
+  private client: HttpKvClient;
   private perIpWindow = 3600;
   private perAddressWindow = 3600;
   private dailyWindow = 86400;
+  private config: RateLimiterConfig;
 
-  constructor(private config: RateLimiterConfig = DEFAULT_CONFIG) {
+  constructor(config: RateLimiterConfig = DEFAULT_CONFIG) {
+    this.config = config;
     const url = process.env.KV_REST_API_URL;
     const token = process.env.KV_REST_API_TOKEN;
 
     if (!url || !token) {
       throw new Error(
-        "Vercel KV rate limiter requires KV_REST_API_URL and KV_REST_API_TOKEN"
+        "Vercel KV rate limiter requires KV_REST_API_URL and KV_REST_API_TOKEN",
       );
     }
 
     this.client = {
       baseUrl: url,
       token,
-      request: async (method: string, key: string, ...args: any[]) => {
+      request: async (method: string, key: string, ...args: unknown[]) => {
         const response = await fetch(`${url}/${method}/${key}`, {
           method: "POST",
           headers: {
@@ -245,7 +268,10 @@ export class VercelKVRateLimiter implements RateLimiter {
           },
           body: JSON.stringify(args),
         });
-        const result = await response.json();
+        const result = (await response.json()) as {
+          error?: string;
+          result?: unknown;
+        };
         if (result.error) throw new Error(result.error);
         return result.result;
       },
@@ -280,7 +306,11 @@ export class VercelKVRateLimiter implements RateLimiter {
     await this.client.request("EXPIRE", ipKey, String(this.perIpWindow));
 
     await this.client.request("INCR", addressKey);
-    await this.client.request("EXPIRE", addressKey, String(this.perAddressWindow));
+    await this.client.request(
+      "EXPIRE",
+      addressKey,
+      String(this.perAddressWindow),
+    );
 
     await this.client.request("INCRBY", dailyKey, String(amount));
     await this.client.request("EXPIRE", dailyKey, String(this.dailyWindow));
@@ -289,7 +319,7 @@ export class VercelKVRateLimiter implements RateLimiter {
   async getDailyTotal(): Promise<bigint> {
     const dailyKey = `faucet:daily:total`;
     const total = await this.client.request("GET", dailyKey);
-    return BigInt(total ?? 0);
+    return BigInt((total as string | number | bigint) ?? 0);
   }
 }
 
@@ -297,9 +327,12 @@ export class VercelKVRateLimiter implements RateLimiter {
  * Factory to create the appropriate rate limiter based on env vars.
  */
 export function createRateLimiter(
-  config: RateLimiterConfig = DEFAULT_CONFIG
+  config: RateLimiterConfig = DEFAULT_CONFIG,
 ): RateLimiter {
-  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+  if (
+    process.env.UPSTASH_REDIS_REST_URL &&
+    process.env.UPSTASH_REDIS_REST_TOKEN
+  ) {
     return new RedisRateLimiter(config);
   }
 

@@ -2,9 +2,14 @@
 
 import { useEffect } from "react";
 import type { Invoice } from "@/lib/contract";
-import { formatAmount, formatDate, humanizeDescription, shortAddress } from "@/lib/format";
-import { invoicePrintTitle } from "@/lib/invoice-helpers";
 import { config, explorer } from "@/lib/config";
+import { invoicePrintTitle } from "@/lib/invoice-helpers";
+import {
+  formatAmount,
+  formatDate,
+  humanizeDescription,
+  shortAddress,
+} from "@/lib/format";
 import { useTokenMeta } from "@/lib/use-token-meta";
 import { StatusBadge } from "./ui";
 import { LogoMark } from "./LogoMark";

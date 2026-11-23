@@ -16,6 +16,7 @@ import { FaucetButton } from "@/components/FaucetButton";
 import { TrustlineButton } from "@/components/TrustlineButton";
 import { TokenAmount } from "@/components/TokenAmount";
 import { useTokenMeta } from "@/lib/use-token-meta";
+import { isOverdue } from "@/lib/invoice-helpers";
 import { useAsyncResource } from "@/lib/use-async-resource";
 
 const NO_INVOICES: Invoice[] = [];
@@ -72,10 +73,7 @@ export default function DashboardPage() {
   const paidTotals = totalsByToken(invoices, "Paid");
   const pendingTotals = totalsByToken(invoices, "Pending");
   const pending = invoices.filter((i) => i.status === "Pending");
-  const nowMs = Date.now();
-  const overdue = pending.filter(
-    (i) => i.dueDate > 0n && i.dueDate * 1000n < BigInt(nowMs),
-  );
+  const overdue = pending.filter((i) => isOverdue(i));
 
   return (
     <div className="space-y-6">

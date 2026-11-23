@@ -7,6 +7,8 @@ import { ConnectPrompt } from "@/components/ConnectPrompt";
 import { Alert, Spinner, TxLink } from "@/components/ui";
 import { InvoicePreview } from "@/components/InvoiceDocument";
 import { createInvoice, getAllowedTokenIds } from "@/lib/contract";
+import { errorMessage } from "@/lib/async-resource";
+import { dueDateError, todayDateInputValue } from "@/lib/invoice-helpers";
 import { toBaseUnits } from "@/lib/format";
 import { dueDateError, todayDateInputValue } from "@/lib/invoice-helpers";
 import { config, getTokenConfig, isConfigured, tokens } from "@/lib/config";
@@ -168,8 +170,8 @@ export default function CreatePage() {
       setAmount("");
       setDescription("");
       setDueDate("");
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to create invoice.");
+    } catch (e) {
+      setError(errorMessage(e, "Failed to create invoice."));
     } finally {
       setSubmitting(false);
     }

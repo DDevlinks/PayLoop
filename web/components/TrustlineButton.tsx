@@ -7,6 +7,7 @@ import { establishTokenTrustline, hasTokenTrustline } from "@/lib/contract";
 import { config } from "@/lib/config";
 import { useTokenMeta } from "@/lib/use-token-meta";
 import { trackEvent } from "@/lib/analytics";
+import { errorMessage } from "@/lib/async-resource";
 
 // Detects whether the connected wallet trusts the USDC asset and, if not,
 // offers a one-click button to establish the trustline via the active wallet. This
@@ -48,8 +49,8 @@ export function TrustlineButton({
       setTrusted(true);
       trackEvent("trustline_enabled");
       onDone?.();
-    } catch (e: any) {
-      setError(e?.message ?? `Could not enable ${token.symbol}.`);
+    } catch (e) {
+      setError(errorMessage(e, `Could not enable ${token.symbol}.`));
     } finally {
       setLoading(false);
     }

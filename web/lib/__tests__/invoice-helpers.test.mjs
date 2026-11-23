@@ -5,6 +5,7 @@ import {
   dueDateError,
   invoicePrintTitle,
   isInvoiceOwner,
+  isOverdue,
   todayDateInputValue,
 } from "../invoice-helpers.ts";
 
@@ -89,3 +90,32 @@ test("reminder message includes id, amount, description and link", () => {
     /\(no description\)/
   );
 });
+
+// ── #70 overdue ─────────────────────────────────────────────────────────────
+
+const NOW_MS = Date.UTC(2026, 10, 22, 12, 0, 0);
+const NOW_S = BigInt(Math.floor(NOW_MS / 1000));
+
+test("a Pending invoice past its due date is overdue", () => {
+  assert.equal(isOverdue({ status: "Pending", dueDate: NOW_S - 1n }, NOW_MS), true);
+  assert.equal(isOverdue({ status: "Pending", dueDate: NOW_S - 86_400n }, NOW_MS), true);
+});
+
+test("a Pending invoice due now or later is not overdue", () => {
+  assert.equal(isOverdue({ status: "Pending", dueDate: NOW_S }, NOW_MS), false);
+  assert.equal(isOverdue({ status: "Pending", dueDate: NOW_S + 1n }, NOW_MS), false);
+});
+
+test("a Paid invoice is never overdue", () => {
+  assert.equal(isOverdue({ status: "Paid", dueDate: NOW_S - 86_400n }, NOW_MS), false);
+});
+
+test("an invoice with no due date is never overdue", () => {
+  assert.equal(isOverdue({ status: "Pending", dueDate: 0n }, NOW_MS), false);
+});
+
+test("isOverdue defaults to the current clock", () => {
+  assert.equal(isOverdue({ status: "Pending", dueDate: 1n }), true);
+  assert.equal(isOverdue({ status: "Pending", dueDate: 99_999_999_999n }), false);
+});
+

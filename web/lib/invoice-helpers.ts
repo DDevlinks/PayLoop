@@ -62,3 +62,21 @@ export function buildReminderMessage(args: {
     args.description || "no description"
   }). Please pay it here: ${args.url}`;
 }
+
+/**
+ * True when an invoice is still Pending and its due date has passed (issue #70).
+ * Shared by every screen so the Overdue badge and the dashboard count agree.
+ * Paid invoices and invoices without a due date (`dueDate === 0n`) never are.
+ * `dueDate` is a unix timestamp in seconds; `nowMs` is a millisecond clock.
+ */
+export function isOverdue(
+  invoice: { status: string; dueDate: bigint },
+  nowMs: number = Date.now()
+): boolean {
+  return (
+    invoice.status === "Pending" &&
+    invoice.dueDate > 0n &&
+    invoice.dueDate * 1000n < BigInt(Math.floor(nowMs))
+  );
+}
+

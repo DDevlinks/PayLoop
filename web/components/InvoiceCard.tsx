@@ -3,9 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { Invoice } from "@/lib/contract";
-import { formatAmount, formatDate, humanizeDescription, shortAddress } from "@/lib/format";
+import { formatAmount, formatDate, humanizeDescription } from "@/lib/format";
 import { useTokenMeta } from "@/lib/use-token-meta";
-import { StatusBadge } from "./ui";
+import { StatusBadge, OverdueBadge } from "./ui";
+import { AddressChip } from "./AddressChip";
+import { isOverdue } from "@/lib/invoice-helpers";
 import { InvoicePreview } from "./InvoiceDocument";
 import { ShareMenu } from "./ShareMenu";
 
@@ -38,8 +40,7 @@ export function InvoiceCard({
   }
 
 
-  const overdue =
-    invoice.status === "Pending" && invoice.dueDate > 0n && invoice.dueDate * 1000n < BigInt(Date.now());
+  const overdue = isOverdue(invoice);
 
   return (
     <div className="card space-y-3">
@@ -47,11 +48,7 @@ export function InvoiceCard({
         <div>
           <p className="text-sm text-slate-400">
             Invoice #{invoice.id}
-            {overdue && (
-              <span className="badge ml-2 bg-red-500/15 text-red-300">
-                Overdue
-              </span>
-            )}
+            {overdue && <OverdueBadge className="ml-2" />}
           </p>
           <p className="text-2xl font-bold">
             {formatAmount(invoice.amount, token.decimals)}{" "}
@@ -72,10 +69,10 @@ export function InvoiceCard({
           <dt className="text-slate-500">
             {role === "freelancer" ? "Client" : "Freelancer"}
           </dt>
-          <dd className="font-mono">
-            {shortAddress(
-              role === "freelancer" ? invoice.client : invoice.freelancer
-            )}
+          <dd>
+            <AddressChip
+              address={role === "freelancer" ? invoice.client : invoice.freelancer}
+            />
           </dd>
         </div>
         <div>

@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useWallet } from "@/components/WalletProvider";
-import { Alert, Spinner, StatusBadge, TxLink } from "@/components/ui";
+import { Alert, OverdueBadge, Spinner, StatusBadge, TxLink } from "@/components/ui";
+import { AddressChip } from "@/components/AddressChip";
 import { InvoicePreview } from "@/components/InvoiceDocument";
 import { TrustlineButton } from "@/components/TrustlineButton";
 import { FaucetButton } from "@/components/FaucetButton";
@@ -13,6 +14,8 @@ import {
   getTokenBalance,
   hasTokenTrustline,
 } from "@/lib/contract";
+import { errorMessage } from "@/lib/async-resource";
+import { buildReminderMessage, isInvoiceOwner } from "@/lib/invoice-helpers";
 import {
   formatAmount,
   formatDate,
@@ -20,7 +23,11 @@ import {
   shortAddress,
 } from "@/lib/format";
 import { config, isConfigured } from "@/lib/config";
-import { buildReminderMessage, isInvoiceOwner } from "@/lib/invoice-helpers";
+import {
+  buildReminderMessage,
+  isInvoiceOwner,
+  isOverdue,
+} from "@/lib/invoice-helpers";
 import { useTokenMeta } from "@/lib/use-token-meta";
 import { trackEvent } from "@/lib/analytics";
 import { useAsyncResource } from "@/lib/use-async-resource";
@@ -101,8 +108,8 @@ export default function PayClient({ id }: { id: string }) {
       setPaidHash(res.hash);
       trackEvent("invoice_paid");
       await load();
-    } catch (e: any) {
-      const raw = String(e?.message ?? "");
+    } catch (e) {
+      const raw = errorMessage(e, "");
       // Translate the most common on-chain failure into plain language.
       if (raw.includes("trustline entry is missing")) {
         setFreelancerReady(false);
@@ -152,6 +159,7 @@ export default function PayClient({ id }: { id: string }) {
   // instead of the "wrong wallet" message. Client/anonymous views are unchanged.
   const isOwner = isInvoiceOwner(address, invoice);
   const isPaid = invoice.status === "Paid";
+  const overdue = isOverdue(invoice);
   const payUrl =
     typeof window !== "undefined"
       ? `${window.location.origin}/pay/${invoice.id}`
@@ -164,14 +172,17 @@ export default function PayClient({ id }: { id: string }) {
       <div className="text-center">
         <h1 className="text-2xl font-bold">Invoice #{invoice.id}</h1>
         <p className="mt-1 text-sm text-slate-400">
-          Payment request from {shortAddress(invoice.freelancer)}
+          Payment request from <AddressChip address={invoice.freelancer} />
         </p>
       </div>
 
       <div className="card space-y-5">
         <div className="flex items-center justify-between">
           <span className="text-sm text-slate-400">Amount due</span>
-          <StatusBadge status={invoice.status} />
+          <span className="flex items-center gap-2">
+            {overdue && <OverdueBadge />}
+            <StatusBadge status={invoice.status} />
+          </span>
         </div>
         <div className="text-center">
           <div className="text-4xl font-bold">
@@ -187,12 +198,19 @@ export default function PayClient({ id }: { id: string }) {
           />
           <Row
             label="From (freelancer)"
-            value={shortAddress(invoice.freelancer)}
-            mono
+            value={<AddressChip address={invoice.freelancer} />}
           />
-          <Row label="To (client)" value={shortAddress(invoice.client)} mono />
+          <Row label="To (client)" value={<AddressChip address={invoice.client} />} />
           {invoice.dueDate > 0n && (
-            <Row label="Due date" value={formatDate(invoice.dueDate)} />
+            <Row
+              label="Due date"
+              value={
+                <span className="flex items-center gap-2">
+                  {formatDate(invoice.dueDate)}
+                  {overdue && <OverdueBadge />}
+                </span>
+              }
+            />
           )}
           {isPaid && <Row label="Paid on" value={formatDate(invoice.paidAt)} />}
         </div>
@@ -291,7 +309,7 @@ export default function PayClient({ id }: { id: string }) {
               </button>
             ) : isOwner ? null : !isClient ? (
               <Alert kind="info">
-                This invoice is addressed to {shortAddress(invoice.client)}.
+                This invoice is addressed to <AddressChip address={invoice.client} />.
                 Connect that wallet to pay it.
               </Alert>
             ) : trusted === false ? (
@@ -387,7 +405,7 @@ function Row({
   mono,
 }: {
   label: string;
-  value: string;
+  value: React.ReactNode;
   mono?: boolean;
 }) {
   return (

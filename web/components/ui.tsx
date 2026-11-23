@@ -18,6 +18,13 @@ export function StatusBadge({ status }: { status: InvoiceStatus }) {
   );
 }
 
+/** The red "Overdue" badge. Render it only when `isOverdue(invoice)` is true. */
+export function OverdueBadge({ className = "" }: { className?: string }) {
+  return (
+    <span className={`badge bg-red-500/15 text-red-300 ${className}`}>Overdue</span>
+  );
+}
+
 export function Spinner({ className = "" }: { className?: string }) {
   return (
     <span

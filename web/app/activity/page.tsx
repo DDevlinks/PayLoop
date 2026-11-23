@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { Alert, Spinner, StatusBadge, EmptyState } from "@/components/ui";
 import { ScanStatus } from "@/components/ScanStatus";
+import { AddressChip } from "@/components/AddressChip";
 import type { Invoice } from "@/lib/contract";
 import { useInvoiceScan } from "@/lib/use-invoice-scan";
 import {
@@ -11,7 +12,6 @@ import {
   formatDate,
   fromBaseUnits,
   humanizeDescription,
-  shortAddress,
 } from "@/lib/format";
 import { config, explorer, getTokenConfig, isConfigured } from "@/lib/config";
 import { TokenAmount } from "@/components/TokenAmount";
@@ -448,14 +448,5 @@ function SettledVolumeChart({
 }
 
 function WalletLink({ addr }: { addr: string }) {
-  return (
-    <a
-      href={explorer.account(addr)}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="font-mono text-brand-300 underline-offset-2 hover:underline"
-    >
-      {shortAddress(addr)}
-    </a>
-  );
+  return <AddressChip address={addr} className="text-brand-300" />;
 }

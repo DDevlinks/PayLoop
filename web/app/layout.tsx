@@ -12,7 +12,12 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: "PayLoop — Get paid in crypto, cash out in Naira",
+  // Routes set their own `title` (see each segment's layout.tsx); the template
+  // appends the site name, and `default` is used where a route sets none.
+  title: {
+    default: "PayLoop — Get paid in crypto, cash out in Naira",
+    template: "%s · PayLoop",
+  },
   description:
     "PayLoop lets African freelancers invoice foreign clients in USDC on Stellar and cash out to local currency. Fast, low-fee, on-chain proof of payment.",
   openGraph: {
@@ -39,8 +44,21 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           <WalletProvider>
+            {/* Issue #72: first Tab stop; visible only while focused. */}
+            <a
+              href="#main"
+              className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-brand-500 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:outline-none focus:ring-2 focus:ring-white"
+            >
+              Skip to content
+            </a>
             <Navbar />
-            <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+            <main
+              id="main"
+              tabIndex={-1}
+              className="mx-auto max-w-5xl px-4 py-8 focus:outline-none"
+            >
+              {children}
+            </main>
             <footer className="border-t border-white/5 py-10 text-xs text-slate-500">
               <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-4 px-4 sm:flex-row">
                 <p>PayLoop · Built on Stellar Soroban · Testnet demo</p>

@@ -8,23 +8,8 @@ import {
   useMemo,
   useState,
 } from "react";
-import { config } from "@/lib/config";
-import {
-  connectWallet,
-  DEFAULT_WALLET_ID,
-  detectWallet,
-  disconnectWallet,
-  getWalletOption,
-  setActiveWallet,
-  storeWallet,
-  subscribeWalletChanges,
-  walletErrorMessage,
-  clearStoredWallet,
-  readStoredWallet,
-  type Unsubscribe,
-  type WalletId,
-} from "@/lib/wallet";
-import { WalletPicker } from "./WalletPicker";
+import { connectWallet, detectWallet } from "@/lib/wallet";
+import { errorMessage } from "@/lib/async-resource";
 
 type WalletContextValue = {
   address: string | null;
@@ -93,39 +78,26 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Keep the UI in sync when the wallet changes account/network/disconnect.
-  useEffect(() => {
-    let active = true;
-    let unsubscribe: Unsubscribe | undefined;
-
-    void (async () => {
-      const stop = await subscribeWalletChanges(walletId, (change) => {
-        if (change.disconnected) {
-          setAddress(null);
-          setNetwork(null);
-          setNetworkPassphrase(null);
-          clearStoredWallet();
-          return;
-        }
-        if (change.address !== undefined) {
-          setAddress(change.address || null);
-          if (change.address) storeWallet(walletId, change.address);
-          else clearStoredWallet();
-        }
-        if (change.network !== undefined) setNetwork(change.network || null);
-        if (change.networkPassphrase !== undefined) {
-          setNetworkPassphrase(change.networkPassphrase || null);
-        }
-      });
-      if (!active) stop();
-      else unsubscribe = stop;
-    })();
-
-    return () => {
-      active = false;
-      unsubscribe?.();
-    };
-  }, [walletId]);
+  const connect = useCallback(async () => {
+    setConnecting(true);
+    setError(null);
+    try {
+      const addr = await connectWallet();
+      const state = await detectWallet();
+      setAddress(addr);
+      setNetwork(state.network);
+      setInstalled(true);
+      localStorage.setItem(STORAGE_KEY, "1");
+    } catch (e) {
+      const message = errorMessage(e, "Failed to connect wallet.");
+      setError(message);
+      if (message.toLowerCase().includes("not found")) {
+        setInstalled(false);
+      }
+    } finally {
+      setConnecting(false);
+    }
+  }, []);
 
   const clearError = useCallback(() => {
     setError(null);
@@ -200,19 +172,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     [
       address,
       network,
-      networkPassphrase,
-      walletId,
       installed,
       connecting,
-      pickerOpen,
-      wrongNetwork,
       error,
       clearError,
       connect,
       disconnect,
-      openWalletPicker,
-      closeWalletPicker,
-    ]
+    ],
   );
 
   return (

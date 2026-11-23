@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useWallet } from "./WalletProvider";
 import { Spinner } from "./ui";
+import { errorMessage } from "@/lib/async-resource";
 
 // Floating feedback button + panel, mounted app-wide. Posts to /api/feedback.
 // Required for the "basic user feedback collection" submission item; kept
@@ -14,7 +15,7 @@ export function FeedbackWidget() {
   const [message, setMessage] = useState("");
   const [role, setRole] = useState("");
   const [state, setState] = useState<"idle" | "sending" | "done" | "error">(
-    "idle"
+    "idle",
   );
   const [err, setErr] = useState<string | null>(null);
 
@@ -30,15 +31,20 @@ export function FeedbackWidget() {
       const res = await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rating, message: message.trim(), role, address }),
+        body: JSON.stringify({
+          rating,
+          message: message.trim(),
+          role,
+          address,
+        }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         throw new Error(d.error ?? "Could not send feedback.");
       }
       setState("done");
-    } catch (e: any) {
-      setErr(e?.message ?? "Could not send feedback.");
+    } catch (e) {
+      setErr(errorMessage(e, "Could not send feedback."));
       setState("error");
     }
   }
@@ -108,7 +114,9 @@ export function FeedbackWidget() {
                         type="button"
                         onClick={() => setRating(n)}
                         className={`text-2xl transition ${
-                          n <= rating ? "opacity-100" : "opacity-30 hover:opacity-60"
+                          n <= rating
+                            ? "opacity-100"
+                            : "opacity-30 hover:opacity-60"
                         }`}
                         aria-label={`${n} star${n > 1 ? "s" : ""}`}
                         aria-pressed={n <= rating}
@@ -121,7 +129,8 @@ export function FeedbackWidget() {
 
                 <div>
                   <label className="label" htmlFor="fb-role">
-                    What do you do? <span className="text-slate-500">(optional)</span>
+                    What do you do?{" "}
+                    <span className="text-slate-500">(optional)</span>
                   </label>
                   <input
                     id="fb-role"
