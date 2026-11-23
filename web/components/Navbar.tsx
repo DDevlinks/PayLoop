@@ -7,6 +7,7 @@ import { useWallet } from "./WalletProvider";
 import { useTheme } from "./ThemeProvider";
 import { LogoMark } from "./LogoMark";
 import { shortAddress } from "@/lib/format";
+import { config } from "@/lib/config";
 
 const links = [
   { href: "/dashboard", label: "Dashboard" },
@@ -18,7 +19,16 @@ const links = [
 ];
 
 export function Navbar() {
-  const { address, connect, connecting, disconnect, error, clearError, installed } = useWallet();
+  const {
+    address,
+    walletName,
+    connecting,
+    disconnect,
+    error,
+    clearError,
+    openWalletPicker,
+    wrongNetwork,
+  } = useWallet();
   const { theme, toggle } = useTheme();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -78,16 +88,20 @@ export function Navbar() {
 
           {address ? (
             <button
-              onClick={disconnect}
-              title="Click to disconnect"
+              onClick={() => void disconnect()}
+              title={`${walletName} · click to disconnect`}
               className="btn-ghost font-mono text-xs"
             >
-              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  wrongNetwork ? "bg-amber-400" : "bg-emerald-400"
+                }`}
+              />
               {shortAddress(address)}
             </button>
           ) : (
             <button
-              onClick={connect}
+              onClick={openWalletPicker}
               disabled={connecting}
               className="btn-primary text-sm"
             >
@@ -137,7 +151,19 @@ export function Navbar() {
         </nav>
       )}
 
-      {/* Wallet connection error alert */}
+      {/* Wallet state banners */}
+      {wrongNetwork && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="border-t border-amber-500/20 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-100"
+        >
+          <div className="mx-auto max-w-5xl">
+            Your wallet is on another Stellar network. Switch it to {config.network} before
+            creating or paying an invoice.
+          </div>
+        </div>
+      )}
       {error && (
         <div
           role="alert"
@@ -146,21 +172,8 @@ export function Navbar() {
         >
           <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-semibold text-rose-300">Connection error:</span>
+              <span className="font-semibold text-rose-300">Wallet error:</span>
               <span>{error}</span>
-              {(!installed ||
-                error.toLowerCase().includes("freighter") ||
-                error.toLowerCase().includes("not found") ||
-                error.toLowerCase().includes("install")) && (
-                <a
-                  href="https://www.freighter.app/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-semibold text-white underline hover:text-rose-100"
-                >
-                  Install Freighter →
-                </a>
-              )}
             </div>
             <button
               onClick={clearError}

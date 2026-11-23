@@ -13,7 +13,7 @@ import Link from "next/link";
 const steps = [
   {
     title: "Connect your wallet",
-    body: "Install the Freighter browser extension, switch it to Testnet, then connect from the button in the top-right. Your wallet is your PayLoop account.",
+    body: "Connect a supported Stellar wallet (Freighter, xBull, Albedo, Lobstr or Hana), switch it to Testnet, then use the button in the top-right. Your wallet is your PayLoop account.",
     href: null,
     cta: null,
   },

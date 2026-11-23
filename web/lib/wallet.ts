@@ -1,72 +1,136 @@
-// Thin wrapper around Freighter so the rest of the app never imports the
-// wallet SDK directly. All calls are guarded for SSR (window undefined).
+// Wallet facade used by the app. Only this module imports concrete adapters,
+// so contract.ts and the UI never import a wallet SDK directly.
 
-import {
-  isConnected,
-  isAllowed,
-  setAllowed,
-  getAddress,
-  getNetwork,
-  signTransaction,
-} from "@stellar/freighter-api";
 import { config } from "./config";
+import { WRONG_NETWORK_MESSAGE } from "./wallet/errors";
+import { createFreighterAdapter } from "./wallet/freighter";
+import { isExpectedNetwork } from "./wallet/networks";
+import { DEFAULT_WALLET_ID } from "./wallet/registry";
+import { readStoredWallet } from "./wallet/storage";
+import type {
+  Unsubscribe,
+  WalletAdapter,
+  WalletChange,
+  WalletId,
+  WalletNetwork,
+  WalletState,
+} from "./wallet/types";
+import { createWalletKitAdapter } from "./wallet/wallet-kit";
 
-export type WalletState = {
-  installed: boolean;
-  address: string | null;
-  network: string | null;
-};
+export type {
+  Unsubscribe,
+  WalletAdapter,
+  WalletChange,
+  WalletId,
+  WalletNetwork,
+  WalletOption,
+  WalletState,
+} from "./wallet/types";
+export {
+  DEFAULT_WALLET_ID,
+  WALLET_OPTIONS,
+  getWalletOption,
+  isWalletId,
+} from "./wallet/registry";
+export {
+  WALLET_CONNECT_MESSAGE,
+  WALLET_DECLINED_MESSAGE,
+  WALLET_GENERIC_MESSAGE,
+  WALLET_NOT_FOUND_MESSAGE,
+  WALLET_SIGN_MESSAGE,
+  WRONG_NETWORK_MESSAGE,
+  walletErrorMessage,
+} from "./wallet/errors";
+export {
+  clearStoredWallet,
+  readStoredWallet,
+  storeWallet,
+} from "./wallet/storage";
 
-export async function detectWallet(): Promise<WalletState> {
-  if (typeof window === "undefined") {
-    return { installed: false, address: null, network: null };
+const adapters = new Map<WalletId, WalletAdapter>();
+
+export function getWalletAdapter(id: WalletId): WalletAdapter {
+  let adapter = adapters.get(id);
+  if (!adapter) {
+    adapter =
+      id === "freighter" ? createFreighterAdapter() : createWalletKitAdapter(id);
+    adapters.set(id, adapter);
   }
+  return adapter;
+}
+
+let activeWalletId: WalletId | null = null;
+
+export function setActiveWallet(id: WalletId): void {
+  activeWalletId = id;
+}
+
+export function getActiveWalletId(): WalletId {
+  return activeWalletId ?? readStoredWallet()?.id ?? DEFAULT_WALLET_ID;
+}
+
+function emptyState(): WalletState {
+  return { installed: false, address: null, network: null, networkPassphrase: null };
+}
+
+export async function detectWallet(
+  id: WalletId = getActiveWalletId()
+): Promise<WalletState> {
   try {
-    const connected = await isConnected();
-    if (!connected.isConnected) {
-      return { installed: false, address: null, network: null };
-    }
-    const allowed = await isAllowed();
-    if (!allowed.isAllowed) {
-      return { installed: true, address: null, network: null };
-    }
-    const [addr, net] = await Promise.all([getAddress(), getNetwork()]);
-    return {
-      installed: true,
-      address: addr.address || null,
-      network: net.network || null,
-    };
+    return await getWalletAdapter(id).detect();
   } catch {
-    return { installed: false, address: null, network: null };
+    return emptyState();
   }
 }
 
-export async function connectWallet(): Promise<string> {
-  if (typeof window === "undefined") throw new Error("No window");
-  const connected = await isConnected();
-  if (!connected.isConnected) {
-    throw new Error(
-      "Freighter wallet not found. Install it from freighter.app to continue."
-    );
-  }
-  const res = await setAllowed();
-  if (!res.isAllowed) {
-    throw new Error("Wallet connection was declined.");
-  }
-  const addr = await getAddress();
-  if (addr.error || !addr.address) {
-    throw new Error(addr.error || "Could not read wallet address.");
-  }
-  return addr.address;
+export async function connectWallet(
+  id: WalletId = getActiveWalletId()
+): Promise<string> {
+  const address = await getWalletAdapter(id).connect();
+  setActiveWallet(id);
+  return address;
 }
 
-// Signs a base64 XDR transaction envelope and returns the signed XDR.
+export async function getWalletNetwork(
+  id: WalletId = getActiveWalletId()
+): Promise<WalletNetwork> {
+  return getWalletAdapter(id).getNetwork();
+}
+
+export async function disconnectWallet(
+  id: WalletId = getActiveWalletId()
+): Promise<void> {
+  try {
+    await getWalletAdapter(id).disconnect?.();
+  } catch {
+    // Clearing local state still disconnects PayLoop from the user's view.
+  }
+}
+
+export async function subscribeWalletChanges(
+  id: WalletId,
+  listener: (change: WalletChange) => void
+): Promise<Unsubscribe> {
+  const adapter = getWalletAdapter(id);
+  if (!adapter.subscribe) return () => {};
+  try {
+    return await adapter.subscribe(listener);
+  } catch {
+    return () => {};
+  }
+}
+
+// contract.ts calls this unchanged. Guard against a wallet that reports a
+// different network before asking for a signature, so users get one clear,
+// wallet-agnostic message instead of a failed transaction.
 export async function signXdr(xdr: string): Promise<string> {
-  const res = await signTransaction(xdr, {
-    networkPassphrase: config.networkPassphrase,
-  });
-  if (res.error) {
-    throw new Error(res.error);
+  const adapter = getWalletAdapter(getActiveWalletId());
+  const network = await adapter.getNetwork().catch(() => null);
+  if (
+    network &&
+    !isExpectedNetwork(network.networkPassphrase, config.networkPassphrase)
+  ) {
+    throw new Error(WRONG_NETWORK_MESSAGE);
   }
-  return res.signedTxXdr;
+  return adapter.signXdr(xdr);
 }

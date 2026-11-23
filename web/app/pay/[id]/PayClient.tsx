@@ -20,12 +20,13 @@ import {
   shortAddress,
 } from "@/lib/format";
 import { config, isConfigured } from "@/lib/config";
+import { buildReminderMessage, isInvoiceOwner } from "@/lib/invoice-helpers";
 import { useTokenMeta } from "@/lib/use-token-meta";
 import { trackEvent } from "@/lib/analytics";
 import { useAsyncResource } from "@/lib/use-async-resource";
 
 export default function PayClient({ id }: { id: string }) {
-  const { address, connect, connecting } = useWallet();
+  const { address, openWalletPicker, connecting } = useWallet();
   const [balance, setBalance] = useState<bigint | null>(null);
   const [paying, setPaying] = useState(false);
   // Errors from actions on this page (paying, copying). Load errors come from
@@ -282,7 +283,7 @@ export default function PayClient({ id }: { id: string }) {
           <>
             {!address ? (
               <button
-                onClick={connect}
+                onClick={openWalletPicker}
                 disabled={connecting}
                 className="btn-primary w-full"
               >

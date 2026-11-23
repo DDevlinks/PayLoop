@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 import type { Invoice } from "@/lib/contract";
 import { formatAmount, formatDate, humanizeDescription, shortAddress } from "@/lib/format";
+import { invoicePrintTitle } from "@/lib/invoice-helpers";
+import { config, explorer } from "@/lib/config";
 import { useTokenMeta } from "@/lib/use-token-meta";
 import { StatusBadge } from "./ui";
 import { LogoMark } from "./LogoMark";
@@ -12,8 +14,15 @@ import { LogoMark } from "./LogoMark";
 // global @media print rules in globals.css show only the .print-area. No PDF
 // library needed; the print dialog's "Save as PDF" produces a shareable file.
 
-export function InvoiceDocument({ invoice }: { invoice: Invoice }) {
+export function InvoiceDocument({
+  invoice,
+  txHash,
+}: {
+  invoice: Invoice;
+  txHash?: string;
+}) {
   const token = useTokenMeta(invoice.token);
+  const isPaid = invoice.status === "Paid";
   return (
     <div className="card invoice-print space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
