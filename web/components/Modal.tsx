@@ -1,117 +1,85 @@
 "use client";
 
-// Shared accessible dialog. Extracted for the wallet picker (issue #34) and
-// reusable by the invoice preview / feedback dialogs. Keeps focus inside the
-// dialog, closes on Escape or backdrop click, and returns focus on close.
-
 import { useEffect, useId, useRef } from "react";
+import {
+  getFocusableElements,
+  modalAriaProps,
+  nextFocusIndex,
+} from "@/lib/modal-a11y";
 
-const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
+// One accessible dialog implementation shared by invoice preview, the tour and
+// feedback. It closes on Escape and backdrop click, traps Tab inside the
+// panel, and returns focus to the element that opened it.
 export function Modal({
   open,
   onClose,
-  title,
-  description,
+  label,
+  backdropClassName = "fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4",
+  panelClassName = "",
   children,
-  footer,
-  className = "",
 }: {
   open: boolean;
   onClose: () => void;
-  title: string;
-  description?: string;
+  label: string;
+  backdropClassName?: string;
+  panelClassName?: string;
   children: React.ReactNode;
-  footer?: React.ReactNode;
-  className?: string;
 }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const titleId = useId();
-  const descriptionId = useId();
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const restoreFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
-
-    restoreFocusRef.current = document.activeElement as HTMLElement | null;
-    const dialog = dialogRef.current;
-    const focusable = () =>
-      Array.from(dialog?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []).filter(
-        (element) => element.offsetParent !== null || element === document.activeElement
-      );
-
-    focusable()[0]?.focus();
+    const previous = document.activeElement as HTMLElement | null;
+    const panel = panelRef.current;
+    const focusables = panel ? getFocusableElements(panel) : [];
+    (focusables[0] ?? panel)?.focus();
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (event.key !== "Tab") return;
 
-      const items = focusable();
+      const currentPanel = panelRef.current;
+      if (!currentPanel) return;
+      const items = getFocusableElements(currentPanel);
       if (items.length === 0) {
         event.preventDefault();
+        currentPanel.focus();
         return;
       }
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
+      const index = items.indexOf(document.activeElement as HTMLElement);
+      const next = items[nextFocusIndex(items.length, index, event.shiftKey)];
+      event.preventDefault();
+      next?.focus();
     };
 
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      restoreFocusRef.current?.focus();
+      if (previous && document.contains(previous)) previous.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
+    <div className={backdropClassName} {...modalAriaProps(titleId)} onClick={onClose}>
       <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={description ? descriptionId : undefined}
-        className={`card w-full max-w-md space-y-4 p-5 ${className}`}
+        ref={panelRef}
+        tabIndex={-1}
+        className={panelClassName}
+        onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 id={titleId} className="text-lg font-bold">
-              {title}
-            </h2>
-            {description && (
-              <p id={descriptionId} className="mt-1 text-sm text-slate-400">
-                {description}
-              </p>
-            )}
-          </div>
-          <button
-            onClick={onClose}
-            aria-label="Close dialog"
-            className="btn-ghost h-8 w-8 px-0"
-          >
-            ✕
-          </button>
-        </div>
+        <h2 id={titleId} className="sr-only">
+          {label}
+        </h2>
         {children}
-        {footer}
       </div>
     </div>
   );
