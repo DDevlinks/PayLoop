@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useWallet } from "@/components/WalletProvider";
-import { Alert, OverdueBadge, Spinner, StatusBadge, TxLink } from "@/components/ui";
+import {
+  Alert,
+  OverdueBadge,
+  Spinner,
+  StatusBadge,
+  TxLink,
+} from "@/components/ui";
 import { AddressChip } from "@/components/AddressChip";
 import { InvoicePreview } from "@/components/InvoiceDocument";
 import { TrustlineButton } from "@/components/TrustlineButton";
@@ -15,7 +21,6 @@ import {
   hasTokenTrustline,
 } from "@/lib/contract";
 import { errorMessage } from "@/lib/async-resource";
-import { buildReminderMessage, isInvoiceOwner } from "@/lib/invoice-helpers";
 import {
   formatAmount,
   formatDate,
@@ -200,7 +205,10 @@ export default function PayClient({ id }: { id: string }) {
             label="From (freelancer)"
             value={<AddressChip address={invoice.freelancer} />}
           />
-          <Row label="To (client)" value={<AddressChip address={invoice.client} />} />
+          <Row
+            label="To (client)"
+            value={<AddressChip address={invoice.client} />}
+          />
           {invoice.dueDate > 0n && (
             <Row
               label="Due date"
@@ -263,7 +271,7 @@ export default function PayClient({ id }: { id: string }) {
                       "reminder",
                       buildReminderMessage({
                         id: invoice.id,
-                        amountLabel: `${formatAmount(invoice.amount)} ${config.tokenSymbol}`,
+                        amountLabel: `${formatAmount(invoice.amount, token.decimals)} ${token.symbol}`,
                         description: humanizeDescription(invoice.description),
                         url: payUrl,
                       }),
@@ -309,8 +317,9 @@ export default function PayClient({ id }: { id: string }) {
               </button>
             ) : isOwner ? null : !isClient ? (
               <Alert kind="info">
-                This invoice is addressed to <AddressChip address={invoice.client} />.
-                Connect that wallet to pay it.
+                This invoice is addressed to{" "}
+                <AddressChip address={invoice.client} />. Connect that wallet to
+                pay it.
               </Alert>
             ) : trusted === false ? (
               <TrustlineButton

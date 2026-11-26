@@ -1,4 +1,5 @@
 import { withSentryConfig } from "@sentry/nextjs";
+import bundleAnalyzer from "@next/bundle-analyzer";
 
 // Issue #34 adds wallet providers that talk to browser extensions, helper
 // iframes and websockets. Issue #23 wants CSP rolled out in Report-Only mode
@@ -46,7 +47,7 @@ const contentSecurityPolicy = [
 ].join("; ");
 
 /** @type {import('next').NextConfig} */
-const nextConfig = {
+const baseConfig = {
   reactStrictMode: true,
   async headers() {
     return [
@@ -62,6 +63,10 @@ const nextConfig = {
     ];
   },
 };
+
+// Opt-in bundle report: `npm run analyze` sets ANALYZE=true. Normal builds are unaffected.
+const withBundleAnalyzer = bundleAnalyzer({ enabled: process.env.ANALYZE === "true" });
+const nextConfig = withBundleAnalyzer(baseConfig);
 
 // Sentry wraps the config only when a DSN/org is configured, so local dev and
 // CI without Sentry env vars still build cleanly.

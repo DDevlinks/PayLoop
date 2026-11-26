@@ -391,25 +391,24 @@ impl InvoiceContract {
 
     /// Paginated read of invoices for a freelancer. Returns up to `len` invoices
     /// starting at index `start` (0-indexed), oldest first.
-    pub fn get_invoice_range(
-        env: Env,
-        freelancer: Address,
-        start: u32,
-        len: u32,
-    ) -> Vec<Invoice> {
+    pub fn get_invoice_range(env: Env, freelancer: Address, start: u32, len: u32) -> Vec<Invoice> {
         let ids: Vec<u64> = env
             .storage()
             .persistent()
             .get(&DataKey::History(freelancer))
             .unwrap_or(Vec::new(&env));
-        
+
         let start_idx = start as usize;
         let len_val = len as usize;
         let mut out: Vec<Invoice> = Vec::new(&env);
         let end_idx = (start_idx + len_val).min(ids.len() as usize);
-        
+
         for i in start_idx..end_idx {
-            if let Some(inv) = env.storage().persistent().get(&DataKey::Invoice(ids.get(i as u32).unwrap())) {
+            if let Some(inv) = env
+                .storage()
+                .persistent()
+                .get(&DataKey::Invoice(ids.get(i as u32).unwrap()))
+            {
                 out.push_back(inv);
             }
         }
