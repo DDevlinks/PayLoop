@@ -1,4 +1,5 @@
 import { withSentryConfig } from "@sentry/nextjs";
+import { buildSecurityHeaders } from "./lib/security-headers.mjs";
 import bundleAnalyzer from "@next/bundle-analyzer";
 
 // Issue #34 adds wallet providers that talk to browser extensions, helper
@@ -53,12 +54,7 @@ const baseConfig = {
     return [
       {
         source: "/(.*)",
-        headers: [
-          {
-            key: "Content-Security-Policy-Report-Only",
-            value: contentSecurityPolicy,
-          },
-        ],
+        headers: buildSecurityHeaders(),
       },
     ];
   },
